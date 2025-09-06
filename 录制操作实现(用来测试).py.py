@@ -4,7 +4,7 @@ from pathlib import Path  # 新增：用于文件路径处理
 from pyminitouch.utils import str2byte
 
 HOST = '127.0.0.1'
-PORT = 1090
+PORT = 1091
 
 # 修改：从桌面的mouse_operations.txt读取指令（与录制脚本保存路径一致）
 RECORD_FILE = r"C:\Users\38384\Desktop\抹茶巴菲\mouse_operations.txt"

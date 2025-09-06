@@ -51,3 +51,16 @@ def gamereg_export(path: str) -> None:
 def gamereg_import(path: str) -> None:
     subcommand = f"reg import {path}"
     result = os.system(subcommand)
+
+# 新增：打印关键信息（仅在直接运行脚本时执行）
+#if __name__ == "__main__":
+    # 检测注册表路径
+    detected_reg_path = get_reg_path()
+    print(f"检测到的注册表路径: {detected_reg_path or '未找到游戏注册表'}")
+    
+    # 获取当前UID
+    current_uid = gamereg_uid()
+    print(f"当前游戏UID: {current_uid or '未找到UID'}")
+
+    export_path = r"C:\Users\38384\Desktop\抹茶巴菲\settings\accounts\1.reg"
+    gamereg_export(export_path)

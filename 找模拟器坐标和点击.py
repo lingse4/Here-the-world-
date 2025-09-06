@@ -43,7 +43,7 @@ def cv_imread(file_path):
         print(f"读取图片失败: {e}")
         return None
 
-def get_xy(img_model_path, threshold=0.8):
+def get_xy(img_model_path, threshold=0.8, region=None):
     """
     用来判定游戏画面的点击坐标
     :param img_model_path: 用来检测的模板图片的路径
@@ -51,14 +51,21 @@ def get_xy(img_model_path, threshold=0.8):
     :return: 以元组形式返回检测到的区域的中心坐标，如果未匹配则返回 None
     """
     # 将屏幕截图保存
-    screenshot_path = adb_screenshot("./Pictures/Screenshots/screenshot.png")
+    adb_screenshot("./Pictures/Screenshots/screenshot.png")
     # 载入截图
-    img = cv2.imread("./Pictures/Screenshots/screenshot.png")
+    img = cv_imread("./Pictures/Screenshots/screenshot.png")
     # 载入模板
-    img_terminal = cv2.imread(img_model_path)
+    img_terminal = cv_imread(img_model_path)
     if img is None or img_terminal is None:
         print("无法加载截图或模板图片")
         return None
+
+       # 裁剪识别区域
+    region_offset = (0, 0)
+    if region is not None:
+        x, y, w, h = region
+        img = img[y:y+h, x:x+w]
+        region_offset = (x, y)
 
     # 获取模板的宽度和高度
     height, width, channel = img_terminal.shape
@@ -73,7 +80,10 @@ def get_xy(img_model_path, threshold=0.8):
         # 计算匹配区域右下角的坐标
         lower_right = (upper_left[0] + width, upper_left[1] + height)
         # 计算中心区域的坐标并且返回
-        avg = (int((upper_left[0] + lower_right[0]) / 2), int((upper_left[1] + lower_right[1]) / 2))
+        avg = (
+            int((upper_left[0] + lower_right[0]) / 2) + region_offset[0],
+            int((upper_left[1] + lower_right[1]) / 2) + region_offset[1]
+        )
         return avg
     else:
         print(f"匹配值 {max_val} 未达到阈值 {threshold}")
@@ -91,9 +101,9 @@ def auto_click(var_avg):
     else:
         print("未检测到目标，无法点击")
 
-def routine(img_model_path, name, threshold=0.8):
+def routine(img_model_path, name, threshold=0.8, region=None):
     while True:
-        avg = get_xy(img_model_path, threshold)
+        avg = get_xy(img_model_path, threshold, region=region)
         if avg:
             print(f'正在点击 {name}，坐标：{avg}')
             adb_tap(avg[0], avg[1])
@@ -103,5 +113,6 @@ def routine(img_model_path, name, threshold=0.8):
             time.sleep(1)
 
 #adb_tap(1085,500)
-avg = routine(r"C:\Users\38384\Pictures\Screenshots\cs.png", "开始剧情", threshold=0.8)
+avg = routine(r"C:\Users\38384\Pictures\Screenshots\s.png", "l", threshold=0.4, region=(900,400,400,400))
+
 print(f"点击完成,坐标：{avg}")

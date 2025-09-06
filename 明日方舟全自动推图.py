@@ -17,10 +17,34 @@ from pynput import keyboard
 from paddleocr import PaddleOCR
 import pygetwindow as gw
 from minitouchdj import send_touch_command as dj
+from mini_record import mini_record
+
+import subprocess
+import os
+import time
+
+commands = [
+    "adb connect 127.0.0.1:16384",
+    "adb -s 127.0.0.1:16384 shell am start-foreground-service --user 0 -a jp.co.cyberagent.stf.ACTION_START -n jp.co.cyberagent.stf/.Service && adb -s 127.0.0.1:16384 forward tcp:1100 localabstract:stfservice",
+    "adb -s 127.0.0.1:16384 forward tcp:1090 localabstract:stfagent && adb -s 127.0.0.1:16384 shell pm path jp.co.cyberagent.stf && adb -s 127.0.0.1:16384 shell export CLASSPATH=\"package:/data/app/~~Jr-GxeGnZxBjP1TWUJA3rw==/jp.co.cyberagent.stf-yTMn6Do7T6PDkxk1PiTaBg==/base.apk\";exec app_process /system/bin jp.co.cyberagent.stf.Agent",
+    "adb -s 127.0.0.1:16384 shell /data/local/tmp/minitouch",
+    "adb -s 127.0.0.1:16384 forward tcp:1090 localabstract:minitouch"
+]
+
+# Define the CREATE_NO_WINDOW flag
+CREATE_NO_WINDOW = 0x08000000
+
+# 按顺序执行命令，并在第一个命令后添加等待
+for i, command in enumerate(commands):
+    subprocess.Popen(command, creationflags=CREATE_NO_WINDOW, shell=True)
+    # 第一个命令（连接）执行后等待1秒
+    if i == 0:
+        time.sleep(1)
 
 SCREENSHOT_DIR = r"C:\Users\38384\Pictures\Screenshots"
 SCREENSHOT_MAIN = os.path.join(SCREENSHOT_DIR, "main_screenshot.png")
 SCREENSHOT_THREAD = os.path.join(SCREENSHOT_DIR, "thread_screenshot.png")
+adb_path = r"D:\BaiduNetdiskDownload\platform-tools-latest-windows\platform-tools\adb"
 processed_texts = []
 device_serial = "127.0.0.1:16384"  # 指定目标设备
 PORT = 1090         # minitouch服务端口
@@ -30,8 +54,7 @@ ocr_engine = PaddleOCR(use_angle_cls=True, lang="ch")
 
 # -------------------- 1. 初始化ADB连接 --------------------
 def check_adb_connection():
-    """检查ADB设备是否已连接"""
-    adb_path = r"D:\BaiduNetdiskDownload\platform-tools-latest-windows\platform-tools\adb"  # ADB 的完整路径
+    """检查ADB设备是否已连接"""  # ADB 的完整路径
     result = subprocess.run(f"{adb_path} devices", shell=True, capture_output=True, text=True, encoding='utf-8', errors='ignore', check=True)
     if device_serial not in result.stdout:
         subprocess.run(f"{adb_path} connect {device_serial}", shell=True)
@@ -43,8 +66,6 @@ def check_adb_connection():
 def adb_screenshot(save_path=SCREENSHOT_MAIN):
     """截取模拟器屏幕并保存为文件"""
     """通过 ADB 直接获取截图二进制流，避免文件传输损坏"""
-    adb_path = r"D:\BaiduNetdiskDownload\platform-tools-latest-windows\platform-tools\adb"
-
     
     command = f'"{adb_path}" -s {device_serial} exec-out screencap -p'
 
@@ -83,8 +104,7 @@ def cv_imread(file_path):
 def adb_tap(x, y):
     """
     使用ADB命令模拟点击屏幕坐标 (x, y)
-    """
-    adb_path = r"D:\BaiduNetdiskDownload\platform-tools-latest-windows\platform-tools\adb"  # ADB 的完整路径
+    """  # ADB 的完整路径
     x = int(x)
     y = int(y)
     command = f'"{adb_path}" -s {device_serial} shell input tap {x} {y}'
@@ -93,8 +113,7 @@ def adb_tap(x, y):
 
 # -------------------- 6. adb返回键命令函数 --------------------
 def adb_back():
-    """使用ADB命令模拟返回键"""
-    adb_path = r"D:\BaiduNetdiskDownload\platform-tools-latest-windows\platform-tools\adb"  # ADB 的完整路径
+    """使用ADB命令模拟返回键"""  # ADB 的完整路径
     command = f'"{adb_path}" -s {device_serial} shell input keyevent KEYCODE_ESCAPE'
     print(f"执行的命令: {command}")
     os.system(command)
@@ -154,16 +173,13 @@ def dj(x, y):
     sock.close()
 
 def routine(img_model_path, name, timeout=None):
-    start_time = time.time()
     while True:
         avg = get_xy(img_model_path, SCREENSHOT_MAIN)
         if avg:
             print(f'正在点击 {name}')
-            dj(avg)
+            dj(avg[0], avg[1])
             return True
-        if timeout and time.time() - start_time > timeout:
-            return False
-time.sleep(1)
+        time.sleep(1)
 
 def bring_window_to_front(window_title):
     try:
@@ -204,7 +220,7 @@ def find_and_click_text(SCREENSHOT_MAIN, target_text):
     adb_screenshot(SCREENSHOT_MAIN)
     processed_path = preprocess_image(SCREENSHOT_MAIN)
     time.sleep(1)  # 等待截图保存完成
-    results = reader.readtext(processed_path, detail=1)  # 获取详细信息，包括坐标
+    results = reader.readtext(processed_path, detail=1, paragraph=False)  # 获取详细信息，包括坐标
     for (bbox, text, prob) in results:
         if target_text in text:
             print(f"找到目标文字 '{target_text}'，坐标: {bbox}")
@@ -277,7 +293,6 @@ def wait_for_image(template_path, SCREENSHOT_MAIN, threshold=0.8):
     """
     while True:
         adb_screenshot(SCREENSHOT_MAIN)
-        time.sleep(1)
         screenshot = cv2.imread(SCREENSHOT_MAIN, cv2.IMREAD_UNCHANGED)
         template = cv2.imread(template_path, cv2.IMREAD_UNCHANGED)
 
@@ -560,28 +575,14 @@ def Clear_levels(name):
         r"C:\Users\38384\Pictures\Screenshots\jr.png"
     )
 
-    dj(135,205)  # 使用第一步的点击坐标
+    dj(56,203)  # 使用第一步的点击坐标
 
-    yh_coords = get_xy(r"C:\Users\38384\Pictures\Screenshots\jr.png", SCREENSHOT_MAIN, threshold=0.6)
-    yh2_coords = get_xy(r"C:\Users\38384\Pictures\Screenshots\yh2.png", SCREENSHOT_MAIN, threshold=0.6)
     jr_coords = get_xy(r"C:\Users\38384\Pictures\Screenshots\jr.png", SCREENSHOT_MAIN, threshold=0.6)
     while True:
         adb_screenshot(SCREENSHOT_MAIN)
-        if yh_coords:
-            print("点击银灰")
-            dj(yh_coords[0], yh_coords[1])
-            break
-        elif yh2_coords:
-            print("点击银灰2")
-            dj(yh2_coords[0], yh2_coords[1])
-            break
-        elif jr_coords:
+        if jr_coords:
             dj(jr_coords[0],jr_coords[1])  # 使用第一步的点击坐标
-        else:
-            print("银灰不在，继续")
-            keyboard.Controller().press('0')  # 按下键 '0'
-            keyboard.Controller().release('0')  # 松开键 '0'
-    time.sleep(1)  # 等待 1 秒
+            break
 
     print("检测并点击 '招募助战'")
     match_and_click_with_retry(
@@ -606,21 +607,13 @@ def Clear_levels(name):
 
     
         # 第七步：检测并点击 "暂停"
-    print("检测并点击 '部署干员'")
-    bring_window_to_front("MuMu操作录制")  # 确保窗口在最前面
+    print("部署干员")  
     while True:
         onebs_coords = get_xy(r"C:\Users\38384\Pictures\Screenshots\1bs.png", SCREENSHOT_MAIN)    
         if onebs_coords:
-            match1_and_click_with_retry(
-            r"C:\Users\38384\Pictures\Screenshots\bsgy.png",
-            SCREENSHOT_MAIN,
-            None,  # 无需验证事件
-            click_once=True  # 只点击一次
-            )
+            mini_record(r"C:\Users\38384\Desktop\抹茶巴菲\mouse_operations.txt",PORT)
             break
-    time.sleep(25)  # 等待 1 秒    
-    minimize_window("官服")  # 最小化窗口
-    minimize_window("MuMu操作录制")  # 最小化窗口    
+    time.sleep(25)  # 等待 25 秒     
     # 第五步：检测并点击 "1倍速"
     print("检测并点击 '1倍速'")
     match_and_click_with_retry(
@@ -632,6 +625,8 @@ def Clear_levels(name):
     # 第六步：等待 "2倍速" 出现
     print("等待 '2倍速' 出现")
     wait_for_image(r"C:\Users\38384\Pictures\Screenshots\2bs.png", SCREENSHOT_MAIN)
+
+    time.sleep(35)
 
     # 第八步：检测并点击 "行动结束"
     print("检测并点击 '行动结束'")
@@ -676,14 +671,29 @@ def process_stage(SCREENSHOT_MAIN, max_retries):
     for attempt in range(max_retries):
         try:
             # 图像匹配检测
-            coords = get_xy(TEMPLATE_PATHS['level'], SCREENSHOT_MAIN, threshold=0.7)
-            coords1 = get_xy(TEMPLATE_PATHS['unplayed'], SCREENSHOT_MAIN)
+            coords = get_xy(TEMPLATE_PATHS['level'], SCREENSHOT_MAIN, threshold=0.8)
+            coords1 = get_xy(TEMPLATE_PATHS['unplayed'], SCREENSHOT_MAIN, threshold=0.8)
             txms_coords = get_xy(TEMPLATE_PATHS['sudden_attack'], SCREENSHOT_MAIN, threshold=0.7)
             coords2 = get_xy(TEMPLATE_PATHS['story_level'], SCREENSHOT_MAIN)
             coords3 = get_xy(TEMPLATE_PATHS['exercise_level'], SCREENSHOT_MAIN, threshold=0.7)
             coords4 = get_xy(TEMPLATE_PATHS['stone'], SCREENSHOT_MAIN, threshold=0.6)
             coords5 = get_xy(TEMPLATE_PATHS['operation'], SCREENSHOT_MAIN, threshold=0.7)
 
+            def record_thread_func(stop_event):
+                last_record_time = 0
+                while not stop_event.is_set():
+                    now = time.time()
+                    if now - last_record_time >= 28:
+                        mini_record(r"C:\Users\38384\Desktop\抹茶巴菲\mouse_operations.txt", PORT)
+                        last_record_time = now
+
+            def detect_thread_func(stop_event):
+                while not stop_event.is_set():
+                    if wait_for_image(TEMPLATE_PATHS['operation'], SCREENSHOT_MAIN):
+                        print("检测到operation图片,已终止mini_record")
+                        stop_event.set()
+                        break
+                    time.sleep(2)
 
             # 普通关卡处理流程
             if coords:
@@ -699,7 +709,6 @@ def process_stage(SCREENSHOT_MAIN, max_retries):
                     print(f"[切换] 突袭模式坐标：{txms_coords}")
                     dj(*txms_coords)
                     if coords1:
-                        time.sleep(0.5)
                         dj(*START_COORDS)
                         print("[操作] 进入突袭关卡")
                         if not Clear_levels("突袭关卡"):
@@ -724,25 +733,31 @@ def process_stage(SCREENSHOT_MAIN, max_retries):
             # 演习关卡处理流程
             if coords3:
                 print("[流程] 检测到演习关卡")
-                dj(*START_COORDS)
-                time.sleep(1)
-                dj(*COMMON_TAP_POINTS['exercise'])
-                print("[操作] 进入演习关卡")
-                match1_and_click_with_retry(
-                    TEMPLATE_PATHS['strategy'],
-                    SCREENSHOT_MAIN,
-                    TEMPLATE_PATHS['operation']
-                    )
-                time.sleep(2)
-                dj(*COMMON_TAP_POINTS['close'])
-                return "特殊关卡"
+                if coords1:
+                    print("[状态] 没打")
+                    dj(*START_COORDS)
+                    time.sleep(1)
+                    dj(*COMMON_TAP_POINTS['exercise'])
+                    print("[操作] 进入演习关卡")
+
+                    stop_event = threading.Event()
+                    t1 = threading.Thread(target=record_thread_func, args=(stop_event,))
+                    t2 = threading.Thread(target=detect_thread_func, args=(stop_event,))
+                    t1.start()
+                    t2.start()
+                    t1.join()
+                    t2.join()
+
+                    time.sleep(28)
+                    dj(603, 442)
+                    return "特殊关卡"
             # 未匹配到任何有效关卡
             if attempt == max_retries - 1:
                 print("[错误] 已达到最大重试次数")
                 return True
 
             print(f"[重试] 第 {attempt+1} 次重试...")
-            time.sleep(2)
+            time.sleep(1)
 
         except Exception as e:
             print(f"[异常] 流程执行出错: {str(e)}")
@@ -779,7 +794,7 @@ def main_process():
                 if re.match(pattern, text):
                     filtered.append(line1)
     # 按小到大排序文本
-    filtered.sort(key=lambda x: x[0][0], reverse=True)
+    filtered.sort(key=lambda x: x[0][0], reverse=False)
 
     while filtered:
         
@@ -796,6 +811,7 @@ def main_process():
         for item1 in new_results:
 
             item1.sort(key=lambda x: x[0][0], reverse=False)
+        
 
             match = next((r for r in item1 if r[1][0] == text), None)
             if match is None:
@@ -815,23 +831,48 @@ def main_process():
             dj(x_center, y_center)
             print(f"执行点击")
             
-            result = process_stage(SCREENSHOT_MAIN, max_retries=2)
+            result = process_stage(SCREENSHOT_MAIN, max_retries=3)
             if result == "特殊关卡":
                 print(f"√ {text} 验证成功")
-                time.sleep(2)
+                time.sleep(5)
                 continue
             elif result:
                 print(f"√ {text} 验证成功")
                 print("点击 '返回' 按钮")
                 adb_back()
-                time.sleep(2)
+                time.sleep(3)
                 continue
             else:
                 print("再来一次！")
-                # 重新获取坐标
-                time.sleep(5)
-                dj(x_center, y_center)
-                process_stage(SCREENSHOT_MAIN, max_retries=2)
+
+                time.sleep(13)
+
+                adb_screenshot(SCREENSHOT_MAIN)
+
+                new_results = ocr_engine.ocr(new_img)
+                
+                for item1 in new_results:
+
+                    item1.sort(key=lambda x: x[0][0], reverse=False)
+
+                    match = next((r for r in item1 if r[1][0] == text), None)
+                    if match is None:
+                        print(f"未找到与 {text} 匹配的bbox,跳过。")
+                        continue
+                    new_bbox = match[0]
+
+                    # 计算 x 坐标的平均值
+                    x_sum = sum(point[0] for point in new_bbox)
+                    x_center = x_sum / len(new_bbox)
+                    # 计算 y 坐标的平均值
+                    y_sum = sum(point[1] for point in new_bbox)
+                    y_center = y_sum / len(new_bbox)
+
+                    print(f"识别到文本: {text} (置信度: {confidence:.2f}) 坐标: ({x_center}, {y_center})")
+                    print(item1)
+                    dj(x_center, y_center)
+                    print(f"执行点击,点击坐标: ({x_center}, {y_center})")
+                    process_stage(SCREENSHOT_MAIN, max_retries=3)
                 continue
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
@@ -940,7 +981,8 @@ if __name__ == "__main__":
     while True:
         print("开始新一轮主流程...")
         main_process()
-        print("主流程完成，等待 5 秒后重新开始...")
-        time.sleep(5)  # 等待 5 秒后重新开始
+        print("主流程完成，等待 7 秒后重新开始...")
+        time.sleep(7)  # 等待 7 秒后重新开始
+
 
 

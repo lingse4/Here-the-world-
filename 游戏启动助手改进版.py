@@ -4,19 +4,40 @@ import time
 import os
 import sys
 import ctypes
-import json
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
 import numpy as np
 import subprocess
 from pywinauto import Application
-from PIL import Image, ImageTk
 import pygetwindow as gw
 from pywinauto.application import Application
-import psutil  # type: ignore # 用于检查进程是否存在
+import psutil
+from qfluentwidgets.components.date_time.calendar_picker import FIF  # type: ignore # 用于检查进程是否存在
 import switch_account
+import sys
+from PyQt5.QtCore import QEventLoop, QSize, Qt
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication
+from qfluentwidgets import NavigationItemPosition, SplashScreen, Theme, setTheme, setThemeColor
+from qframelesswindow import FramelessWindow, QTimer
+from home_interface import HomeInterface
+from .help_interface import HelpInterface
+# from .changelog_interface import ChangelogInterface
+from .warp_interface import WarpInterface
+from .tools_interface import ToolsInterface
+from .setting_interface import SettingInterface
+from contextlib import redirect_stdout
+with redirect_stdout(None):
+    from qfluentwidgets import NavigationItemPosition, MSFluentWindow, SplashScreen, setThemeColor, NavigationBarPushButton, toggleTheme, setTheme, Theme
+    from qfluentwidgets import FluentIcon as FIF
+    from qfluentwidgets import InfoBar, InfoBarPosition
+from .card.messagebox_custom import MessageBoxSupport
+from .tools.check_update import checkUpdate
+from .tools.check_theme_change import checkThemeChange
+from .tools.announcement import checkAnnouncement
+from .tools.disclaimer import disclaimer
+from utils.gamecontroller import GameController
+import base64
 
-pyautogui.FAILSAFE = False  # 警告：关闭安全保护，风险自负！
+pyautogui.FAILSAFE = False  # 警告：关闭安全保护，风险自负!
 
 # 常量定义
 APP_PATH = r"D:\BaiduNetdiskDownload\March7thAssistant_v2025.4.18_full\March7th Launcher.exe"
@@ -28,17 +49,6 @@ IMAGE_PATH_BUTTON_4 = r"C:\Users\38384\Pictures\Screenshots\ysqd.png"
 IMAGE_PATH_DONE_2 = r"C:\Users\38384\Pictures\Screenshots\jrjlylq.png"
 WINDOW_TITLE = "March7th Assistant"
 SECOND_WINDOW_TITLE = "更好的原神"
-
-# GUI配置
-BACKGROUND_IMAGE_PATH = r"C:\Users\38384\Desktop\CEBD96916B71E4B698AC4614B4A9D580.jpg"
-ACCOUNT_FILE = "accounts.json"
-GAMES = ["原神", "星穹铁道"]
-THEME_COLORS = {
-    "bg": "#2E2E2E",
-    "fg": "#FFFFFF",
-    "accent": "#4A90E2",
-    "secondary": "#5C5C5C"
-}
 
 # ------------------------ 核心功能函数 ------------------------
 
@@ -171,210 +181,147 @@ def main_operation(progress_callback):
 
 # ------------------------ GUI 功能 ------------------------
 
-class ModernGUI(tk.Tk):
+class Demo(FramelessWindow):
+
     def __init__(self):
         super().__init__()
-        self.title("游戏启动助手")
-        self.geometry("1200x800")
-        self.configure(bg=THEME_COLORS["bg"])
-        
-        self.current_game = GAMES[0]
-        self.progress_window = None
-        
-        # 初始化样式
-        self.init_styles()
-        
-        # 构建界面
-        self.create_main_container()
-        self.create_sidebar()
-        self.create_main_content()
-        
-    def init_styles(self):
-        style = ttk.Style()
-        style.theme_create("modern", parent="alt", settings={
-            "TNotebook": {
-                "configure": {"background": THEME_COLORS["bg"], "borderwidth": 0}
-            },
-            "TNotebook.Tab": {
-                "configure": {
-                    "padding": [15, 5],
-                    "background": THEME_COLORS["secondary"],
-                    "foreground": THEME_COLORS["fg"],
-                    "font": ("微软雅黑", 12)
-                },
-                "map": {
-                    "background": [("selected", THEME_COLORS["accent"])],
-                    "expand": [("selected", [1, 1, 1, 1])]
-                }
-            },
-            "TButton": {
-                "configure": {
-                    "padding": 6,
-                    "relief": "flat",
-                    "background": THEME_COLORS["accent"],
-                    "foreground": THEME_COLORS["fg"],
-                    "font": ("微软雅黑", 12)
-                },
-                "map": {
-                    "background": [("active", "#3B7FC4")],
-                    "foreground": [("disabled", "#888888")]
-                }
-            }
-        })
-        style.theme_use("modern")
-        
-    def create_main_container(self):
-        self.main_container = ttk.Frame(self)
-        self.main_container.pack(fill="both", expand=True, padx=20, pady=20)
-        
-    def create_sidebar(self):
-        sidebar = ttk.Frame(self.main_container, width=200)
-        sidebar.pack(side="left", fill="y")
-        
-        logo_frame = ttk.Frame(sidebar)
-        logo_frame.pack(pady=20)
-        
-        self.logo = self.load_scaled_image(BACKGROUND_IMAGE_PATH, (160, 160))
-        ttk.Label(logo_frame, image=self.logo).pack()
-        
-        nav_buttons = [
-            ("🚀 一键启动", self.show_launch),
-            ("👤 账户管理", self.show_accounts),
-            ("⚙️ 系统设置", self.show_settings)
-        ]
-        
-        for text, command in nav_buttons:
-            btn = ttk.Button(sidebar, text=text, command=command)
-            btn.pack(fill="x", pady=5)
-        
-    def create_main_content(self):
-        self.notebook = ttk.Notebook(self.main_container)
-        self.notebook.pack(side="right", expand=True, fill="both")
-        
-        # 启动界面
-        self.launch_frame = ttk.Frame(self.notebook)
-        self.create_launch_ui()
-        self.notebook.add(self.launch_frame, text="游戏启动")
-        
-        # 账户管理界面
-        self.account_frame = ttk.Frame(self.notebook)
-        self.create_account_ui()
-        self.notebook.add(self.account_frame, text="账户管理")
-        
-        # 默认显示启动界面
-        self.notebook.select(0)
-        
-    def create_launch_ui(self):
-        container = ttk.Frame(self.launch_frame)
-        container.pack(expand=True, fill="both")
-        
-        # 动态背景图
-        self.canvas = tk.Canvas(container, bg=THEME_COLORS["bg"], highlightthickness=0)
-        self.canvas.pack(expand=True, fill="both")
-        
-        # 启动按钮
-        launch_btn = ttk.Button(container, text="开 始 执 行", command=self.start_game)
-        launch_btn.place(relx=0.5, rely=0.5, anchor="center")
-        
-        # 状态标签
-        self.status_label = ttk.Label(container, text="准备就绪", foreground="#AAAAAA")
-        self.status_label.place(relx=0.5, rely=0.8, anchor="center")
-        
-    def create_account_ui(self):
-        notebook = ttk.Notebook(self.account_frame)
-        notebook.pack(expand=True, fill="both")
-        
-        # 为每个游戏创建账户页
-        self.game_frames = {}
-        for game in GAMES:
-            frame = ttk.Frame(notebook)
-            self.create_game_account_ui(frame, game)
-            notebook.add(frame, text=game)
-            self.game_frames[game] = frame
-            
-    def create_game_account_ui(self, parent, game):
-        container = ttk.Frame(parent)
-        container.pack(expand=True, fill="both", padx=20, pady=20)
-        
-        # 账户表格
-        columns = ("#1", "#2", "#3", "#4")
-        tree = ttk.Treeview(container, columns=columns, show="headings", height=5)
-        tree.heading("#1", text="账号")
-        tree.heading("#2", text="密码")
-        tree.heading("#3", text="配置文件")
-        tree.heading("#4", text="操作")
-        tree.pack(fill="both", expand=True)
-        
-        # 操作按钮
-        btn_frame = ttk.Frame(container)
-        btn_frame.pack(pady=10)
-        
-        ttk.Button(btn_frame, text="添加账户", command=lambda: self.edit_account(game)).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="导入配置", command=lambda: self.import_config(game)).pack(side="left", padx=5)
-        
-    def load_scaled_image(self, path, size):
-        try:
-            img = Image.open(path)
-            img.thumbnail(size)
-            return ImageTk.PhotoImage(img)
-        except Exception as e:
-            print(f"图片加载失败：{e}")
-            return None
-            
-    def show_launch(self):
-        self.notebook.select(0)
-        
-    def show_accounts(self):
-        self.notebook.select(1)
-        
-    def show_settings(self):
-        messagebox.showinfo("提示", "设置功能开发中")
-        
-    def start_game(self):
-        # 移除线程逻辑，改为同步执行
-        self.update_status("正在初始化...", 0)
-        try:
-            # 定义回调函数（直接同步调用main_operation）
-            def main_operation_callback():
-                main_operation(lambda p, msg: self.update_status(msg, p))
-            
-            # 同步调用 switch_account（会阻塞界面，直到完成）
-            switch_account.switch_account(main_operation_callback)
-            
-            self.update_status("所有操作完成", 100)
-        except Exception as e:
-            self.update_status(f"执行出错：{str(e)}", 100, error=True)
+        self.initWindow()
 
-    def update_status(self, message, progress, error=False):
-        self.status_label.config(text=message)
-        if error:
-            messagebox.showerror("错误", message)
-            
-    def edit_account(self, game):
-        # 账户编辑对话框实现
-        pass
-        
-    def import_config(self, game):
-        path = filedialog.askopenfilename(
-            title="选择配置文件",
-            filetypes=[("JSON 文件", "*.json")]
+        self.initInterface()
+        self.initNavigation()
+
+    def initWindow(self):
+        setThemeColor('#f18cb9', lazy=True)
+        setTheme(Theme.AUTO, lazy=True)
+
+        self.titleBar.maxBtn.setHidden(True)
+        self.titleBar.maxBtn.setDisabled(True)
+        self.titleBar.setDoubleClickEnabled(False)
+        self.setResizeEnabled(False)
+        self.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+
+        self.resize(1920, 1280)
+        self.setWindowIcon(QIcon(r"C:\Users\38384\Desktop\泠色.ico"))
+        self.setWindowTitle('泠色')
+
+        # 1. 创建启动页面
+        self.splashScreen = SplashScreen(self.windowIcon(), self)
+        self.splashScreen.setIconSize(QSize(128, 128))
+        self.splashScreen.titleBar.maxBtn.setHidden(True)
+        self.splashScreen.raise_()
+
+        #titleBar = StandardTitleBar(self.splashScreen)
+        #titleBar.setIcon(self.windowIcon())
+        #titleBar.setTitle(self.windowTitle())
+        #self.splashScreen.setTitleBar(titleBar)
+
+        desktop =  QApplication.desktop().availableGeometry()
+        w, h = desktop.width(), desktop.height()
+        self.move(w // 2 - self.width() // 2, h // 2 - self.height() // 2)
+
+        self.show()
+        QApplication.processEvents()
+
+    def createSubInterface(self):
+        loop = QEventLoop(self)
+        QTimer.singleShot(3000, loop.quit)
+        loop.exec()
+
+    def initInterface(self):
+        self.homeInterface = HomeInterface(self)
+        self.helpInterface = HelpInterface(self)
+        # self.changelogInterface = ChangelogInterface(self)
+        self.warpInterface = WarpInterface(self)
+        self.toolsInterface = ToolsInterface(self)
+        self.settingInterface = SettingInterface(self)
+
+    def initNavigation(self):
+        self.addSubInterface(self.homeInterface, FIF.HOME, self.tr('主页'))
+        self.addSubInterface(self.helpInterface, FIF.BOOK_SHELF, self.tr('帮助'))
+        # self.addSubInterface(self.changelogInterface, FIF.UPDATE, self.tr('更新日志'))
+        self.addSubInterface(self.warpInterface, FIF.SHARE, self.tr('抽卡记录'))
+        self.addSubInterface(self.toolsInterface, FIF.DEVELOPER_TOOLS, self.tr('工具箱'))
+
+        self.navigationInterface.addWidget(
+            'startGameButton',
+            NavigationBarPushButton(FIF.PLAY, '启动游戏', isSelectable=False),
+            self.startGame,
+            NavigationItemPosition.BOTTOM)
+
+        self.navigationInterface.addWidget(
+            'themeButton',
+            NavigationBarPushButton(FIF.BRUSH, '主题', isSelectable=False),
+            lambda: toggleTheme(lazy=True),
+            NavigationItemPosition.BOTTOM)
+
+        self.navigationInterface.addWidget(
+            'avatar',
+            NavigationBarPushButton(FIF.HEART, '赞赏', isSelectable=False),
+            lambda: MessageBoxSupport(
+                '支持作者🥰',
+                '此程序为免费开源项目，如果你付了钱请立刻退款\n如果喜欢本项目，可以微信赞赏送作者一杯咖啡☕\n您的支持就是作者开发和维护项目的动力🚀',
+                './assets/app/images/sponsor.jpg',
+                self
+            ).exec(),
+            NavigationItemPosition.BOTTOM
         )
-        if path:
-            try:
-                with open(path, 'r') as f:
-                    accounts = json.load(f)
-                    self.account_mgr.accounts[game] = accounts
-                    self.account_mgr.save_accounts()
-                    messagebox.showinfo("成功", "配置导入成功")
-            except Exception as e:
-                messagebox.showerror("错误", f"配置导入失败：{str(e)}")
 
-if __name__ == "__main__":
-    try:
-        run_as_admin()
-        app = ModernGUI()
-        app.mainloop()
-    except Exception as e:
-        messagebox.showerror("致命错误", f"程序崩溃：{str(e)}")
+        self.addSubInterface(self.settingInterface, FIF.SETTING, self.tr('设置'), position=NavigationItemPosition.BOTTOM)
+
+        self.splashScreen.finish()
+        self.themeListener = checkThemeChange(self)
+
+        if not cfg.get_value(base64.b64decode("YXV0b191cGRhdGU=").decode("utf-8")):
+            disclaimer(self)
+
+    # main_window.py 只需修改关闭事件
+    def closeEvent(self, e):
+        if self.themeListener and self.themeListener.isRunning():
+            self.themeListener.terminate()
+            self.themeListener.deleteLater()
+        super().closeEvent(e)
+
+    def startGame(self):
+        game = GameController(cfg.game_path, cfg.game_process_name, cfg.game_title_name, 'UnityWndClass')
+        try:
+            if game.start_game():
+                InfoBar.success(
+                    title=self.tr('启动成功(＾∀＾●)'),
+                    content="",
+                    orient=Qt.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP,
+                    duration=2000,
+                    parent=self
+                )
+            else:
+                InfoBar.warning(
+                    title=self.tr('游戏路径配置错误(╥╯﹏╰╥)'),
+                    content="请在“设置”-->“程序”中配置",
+                    orient=Qt.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP,
+                    duration=5000,
+                    parent=self
+                )
+        except Exception as e:
+            InfoBar.warning(
+                title=self.tr('启动失败'),
+                content=str(e),
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=5000,
+                parent=self
+            )
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    w = Demo()
+    w.show()
+    app.exec()
+
+#run_as_admin()
 
 

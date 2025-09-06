@@ -2,7 +2,7 @@ import os
 import time
 
 # 设置定时时间（单位：秒）
-shutdown_time =1 * 60 * 60  # 2小时
+shutdown_time =1.5 * 60 * 60  # 2小时
 
 print(f"电脑将在{shutdown_time // 3600}小时后强制关闭")
 

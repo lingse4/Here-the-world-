@@ -5,12 +5,12 @@ from pathlib import Path
 import pygetwindow as gw  # 新增：用于获取窗口信息（需安装：pip install pygetwindow）
 
 # 新增：模拟器配置（根据实际情况修改）
-EMU_WINDOW_TITLE = "官服"  # 模拟器窗口标题（需匹配实际窗口名称）
+EMU_WINDOW_TITLE = "b服"  # 模拟器窗口标题（需匹配实际窗口名称）
 EMU_RESOLUTION = (1280,720)   # 模拟器内部分辨率（如1920x1080）
 
 # 桌面路径（Windows通用）
 DESKTOP_PATH = Path.home() / "Desktop" / "抹茶巴菲"
-RECORD_FILE = DESKTOP_PATH / "mouse_operations.txt"
+RECORD_FILE = DESKTOP_PATH / "mouse_operations(silde).txt"
 
 # 记录变量初始化（新增last_time记录上一次事件时间）
 start_time = None

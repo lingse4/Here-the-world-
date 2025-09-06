@@ -1,7 +1,7 @@
 import pygetwindow as gw
 import pyautogui
 
-def get_genshin_impact_position(window_title='崩坏：星穹铁道'):
+def get_genshin_impact_position(window_title='March7th Assistant'):
     # 查找所有窗口标题中包含特定字符串的窗口
     windows = gw.getWindowsWithTitle(window_title)
     
@@ -19,7 +19,7 @@ def get_genshin_impact_position(window_title='崩坏：星穹铁道'):
     return (left, top, width, height)
 
 # 使用函数获取《崩坏：星穹铁道》窗口的位置
-position = get_genshin_impact_position('崩坏：星穹铁道')
+position = get_genshin_impact_position('March7th Assistant')
 if position:
     print(f"《崩坏：星穹铁道》窗口的绝对位置: 左上角 ({position[0]}, {position[1]}), 宽度 {position[2]}, 高度 {position[3]})")
 else:

@@ -1,3 +1,31 @@
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication
+
+from contextlib import redirect_stdout
+with redirect_stdout(None):
+    from qfluentwidgets import NavigationItemPosition, MSFluentWindow, SplashScreen, setThemeColor, NavigationBarPushButton, toggleTheme, setTheme, Theme
+    from qfluentwidgets import FluentIcon as FIF
+    from qfluentwidgets import InfoBar, InfoBarPosition
+
+from .home_interface import HomeInterface
+from .help_interface import HelpInterface
+# from .changelog_interface import ChangelogInterface
+from .warp_interface import WarpInterface
+from .tools_interface import ToolsInterface
+from .setting_interface import SettingInterface
+
+from .card.messagebox_custom import MessageBoxSupport
+from .tools.check_update import checkUpdate
+from .tools.check_theme_change import checkThemeChange
+from .tools.announcement import checkAnnouncement
+from .tools.disclaimer import disclaimer
+
+from module.config import cfg
+from utils.gamecontroller import GameController
+import base64
+
+
 class MainWindow(MSFluentWindow):
     def __init__(self):
         super().__init__()
@@ -20,7 +48,8 @@ class MainWindow(MSFluentWindow):
         self.titleBar.maxBtn.setDisabled(True)
         self.titleBar.setDoubleClickEnabled(False)
         self.setResizeEnabled(False)
-        self.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        self.setWindowFlags(Qt.WindowCloseButtonHint)
+        # self.setWindowFlags(Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
 
         self.resize(960, 640)
         self.setWindowIcon(QIcon('./assets/logo/March7th.ico'))
@@ -30,7 +59,7 @@ class MainWindow(MSFluentWindow):
         self.splashScreen = SplashScreen(self.windowIcon(), self)
         self.splashScreen.setIconSize(QSize(128, 128))
         self.splashScreen.titleBar.maxBtn.setHidden(True)
-        self.hsplasScreen.raise_()
+        self.splashScreen.raise_()
 
         desktop = QApplication.desktop().availableGeometry()
         w, h = desktop.width(), desktop.height()
@@ -82,3 +111,47 @@ class MainWindow(MSFluentWindow):
 
         self.splashScreen.finish()
         self.themeListener = checkThemeChange(self)
+
+        if not cfg.get_value(base64.b64decode("YXV0b191cGRhdGU=").decode("utf-8")):
+            disclaimer(self)
+
+    # main_window.py 只需修改关闭事件
+    def closeEvent(self, e):
+        if self.themeListener and self.themeListener.isRunning():
+            self.themeListener.terminate()
+            self.themeListener.deleteLater()
+        super().closeEvent(e)
+
+    def startGame(self):
+        game = GameController(cfg.game_path, cfg.game_process_name, cfg.game_title_name, 'UnityWndClass')
+        try:
+            if game.start_game():
+                InfoBar.success(
+                    title=self.tr('启动成功(＾∀＾●)'),
+                    content="",
+                    orient=Qt.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP,
+                    duration=2000,
+                    parent=self
+                )
+            else:
+                InfoBar.warning(
+                    title=self.tr('游戏路径配置错误(╥╯﹏╰╥)'),
+                    content="请在“设置”-->“程序”中配置",
+                    orient=Qt.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP,
+                    duration=5000,
+                    parent=self
+                )
+        except Exception as e:
+            InfoBar.warning(
+                title=self.tr('启动失败'),
+                content=str(e),
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=5000,
+                parent=self
+            )
