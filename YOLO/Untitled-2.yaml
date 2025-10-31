@@ -1,0 +1,7 @@
+# data.yaml
+path: C:\Users\Administrator\Desktop\YOLO\dataset  # 数据集根目录
+train: images/train  # 训练集图像相对路径
+val: images/val      # 验证集图像相对路径
+
+nc: 3          # 检测类别总数
+names: ['gk', 'yxgk', 'jqgk']  # 类别名称列表

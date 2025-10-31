@@ -1,0 +1,2 @@
+           print(f"准备截取窗口区域: ({left+1275}, {top+743}, {width-1200}, {height-743})")
+            screenshot = pyautogui.screenshot(region=(left+1275, top+743, width-1200, height-743))
